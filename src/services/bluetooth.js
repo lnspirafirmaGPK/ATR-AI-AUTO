@@ -15,11 +15,18 @@ class BluetoothService {
     this.simulationMode = SIMULATION_MODES.NORMAL;
     this.intervalId = null;
     this.onDataCallback = null;
+    this.vehicleConfig = null; // [เพิ่ม] เก็บค่า Config รถที่เลือก (Isuzu/Toyota)
 
     // Internal state for simulation
     this.rpm = 800;
     this.railPressureBase = 35000;
     this.tick = 0;
+  }
+
+  // [เพิ่ม] ฟังก์ชันสำหรับรับ Config จาก OBDContext
+  setVehicleConfig(config) {
+    this.vehicleConfig = config;
+    console.log("BluetoothService: Vehicle Config set to", config?.vehicleName);
   }
 
   connect(mode = SIMULATION_MODES.NORMAL) {
@@ -61,6 +68,18 @@ class BluetoothService {
     }, 100); // 10Hz update
   }
 
+  // [เพิ่ม] ฟังก์ชันจำลองค่า Raw Data ตาม Sensor ID
+  getSimulatedRawValue(sensorId) {
+    if (sensorId === 'trans_temp') {
+      // Simulating Isuzu ATF Temp (Formula: A-40)
+      // สร้างค่า Sin wave ให้ขยับขึ้นลงช่วง 80-90 องศา
+      const temp = 85 + Math.sin(this.tick * 0.05) * 5; 
+      // แปลงกลับเป็น Raw Byte A (Reverse formula: Val + 40)
+      return { A: Math.floor(temp + 40), B: 0 };
+    }
+    return { A: 0, B: 0 };
+  }
+
   generateFrame() {
     // Simulate Raw Bytes for Toyota Mode 21
     // Need: railPressureA, railPressureB, inj1, inj2, inj3, inj4
@@ -76,35 +95,36 @@ class BluetoothService {
 
     // Logic based on Simulation Mode
     if (this.simulationMode === SIMULATION_MODES.NORMAL) {
-      // Fluctuate +/- 500
       railPressure += (Math.random() - 0.5) * 1000;
-
-      // Injectors small variance
       inj1 += (Math.random() - 0.5) * 5;
       inj2 += (Math.random() - 0.5) * 5;
       inj3 += (Math.random() - 0.5) * 5;
       inj4 += (Math.random() - 0.5) * 5;
 
     } else if (this.simulationMode === SIMULATION_MODES.SCV_FAULT) {
-      // Sawtooth wave +/- 2500
       const wave = Math.sin(this.tick * 0.2) * 2500;
       railPressure += wave;
 
     } else if (this.simulationMode === SIMULATION_MODES.INJECTOR_FAULT) {
-      // Cylinder 3 fails (< -3.0) -> A < (128 - 3) = 125
       inj3 = 120; // -8.0 approx
       railPressure += (Math.random() - 0.5) * 1000;
     }
 
-    // Convert back to bytes
+    // Convert back to bytes for Mode 21
     const railPressureA = Math.floor(railPressure / 256);
     const railPressureB = Math.floor(railPressure % 256);
+
+    // [เพิ่ม] จำลองค่า ATF Temp โดยเรียกใช้ฟังก์ชัน getSimulatedRawValue
+    // และคำนวณค่าจริง (Formula: A - 40) เพื่อส่งให้ Dashboard แสดงผลทันที
+    const transRaw = this.getSimulatedRawValue('trans_temp');
+    const trans_temp_val = transRaw.A - 40;
 
     return {
       timestamp: Date.now(),
       rpm: this.rpm,
       speed: 0,
       coolantTemp: 85,
+      trans_temp: trans_temp_val, // ส่งค่าอุณหภูมิเกียร์ไปด้วย
       mode21: {
         railPressureA,
         railPressureB,

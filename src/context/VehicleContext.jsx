@@ -12,6 +12,7 @@ export function VehicleProvider({ children }) {
     rpm: 0,
     speed: 0,
     coolantTemp: 0,
+    trans_temp: 0, // [เพิ่มใหม่] รองรับค่าอุณหภูมิเกียร์
     railPressure: 0,
     injectors: { 1: 0, 2: 0, 3: 0, 4: 0 },
   });
@@ -26,18 +27,16 @@ export function VehicleProvider({ children }) {
 
   useEffect(() => {
     bluetoothService.onData((rawFrame) => {
-      // 1. Process Logic (The Brain)
+      // 1. Process Logic
       const diagnostics = DiagnosticEnforcer.processData(rawFrame.mode21);
 
-      // 2. Filter Data based on Tier
-      // Free users get Standard OBD (RPM, Speed, Temp)
-      // Pro users get Deep Diagnostics (Rail Pressure, Injectors, Alerts)
-
+      // 2. Map Data
       const newData = {
         rpm: rawFrame.rpm,
         speed: rawFrame.speed,
         coolantTemp: rawFrame.coolantTemp,
-        // Pro only fields (masked if free)
+        trans_temp: rawFrame.trans_temp || 0, // [เพิ่มใหม่] รับค่าจาก Service
+        
         railPressure: isPro ? diagnostics.values.railPressure : null,
         injectors: isPro ? diagnostics.values.injectors : null,
       };
@@ -50,7 +49,6 @@ export function VehicleProvider({ children }) {
           fuelSystem: diagnostics.analysis.fuelSystem
         });
       } else {
-        // Reset warnings if not pro
          setDiagnosticStatus({
             railSystem: { status: 'NORMAL' },
             fuelSystem: { status: 'NORMAL' }
@@ -59,7 +57,6 @@ export function VehicleProvider({ children }) {
     });
   }, [isPro]);
 
-  // Handle Simulation Mode Switch
   const toggleSimulationMode = (mode) => {
     setSimulationMode(mode);
     bluetoothService.setSimulationMode(mode);

@@ -1,4 +1,4 @@
-# 🚘 ATR Auto AI - Automotive Diagnostic System
+## 🚘 ATR Auto AI - Automotive Diagnostic System
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![License](https://img.shields.io/badge/license-Private-red.svg)

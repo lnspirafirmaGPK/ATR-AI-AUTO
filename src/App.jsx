@@ -7,7 +7,7 @@ import { VehicleProvider } from './context/VehicleContext';
 import { OBDProvider } from './context/OBDContext';
 
 // Pages
-import Dashboard from './pages/Dashboard';
+import GunUIDashboard from './pages/GunUIDashboard';
 import Subscription from './pages/Subscription';
 import LiveMonitor from './pages/LiveMonitor';
 import DTCScanner from './pages/DTCScanner';
@@ -34,9 +34,9 @@ function App() {
                   closeSidebar={() => setIsSidebarOpen(false)}
                   lang={lang}
                 />
-                <main className="flex-1 overflow-y-auto p-4 md:p-6">
+                <main className="flex-1 overflow-y-auto p-0"> {/* Remove padding for GunUI full width */}
                   <Routes>
-                    <Route path="/" element={<Dashboard lang={lang} />} />
+                    <Route path="/" element={<GunUIDashboard lang={lang} />} />
                     <Route path="/subscription" element={<Subscription />} />
                     <Route path="/live" element={<LiveMonitor />} />
                     <Route path="/dtc" element={<DTCScanner />} />

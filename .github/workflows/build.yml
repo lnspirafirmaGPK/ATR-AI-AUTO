@@ -1,47 +1,53 @@
 name: Build Android APK
 
 on:
-  workflow_dispatch: # ปุ่มกดสั่งรันเอง
+  workflow_dispatch: # อนุญาตให้กดปุ่มสั่งรันได้เอง (Manual Trigger)
   push:
     branches:
-      - main # รันอัตโนมัติเมื่อแก้โค้ด
+      - main # รันอัตโนมัติทุกครั้งที่มีการแก้โค้ดและ Push ขึ้น branch main
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # 1. ดึงโค้ดล่าสุดจาก Repository มาที่ Server จำลอง
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      # ตั้งค่า Java 17 ให้ตรงกับ Gradle 8.14.3 ของคุณ
+      # 2. ตั้งค่า Java 17 (จำเป็นสำหรับ Gradle รุ่นใหม่ใน Android Studio)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      # ตั้งค่า Node.js (แนะนำ v22 สำหรับปี 2026)
+      # 3. ตั้งค่า Node.js (ใช้ v20 LTS หรือ v22 ตามความเหมาะสม)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '20'
 
+      # 4. ติดตั้ง Library ต่างๆ ของโปรเจกต์ (React, Vite, Tailwind)
       - name: Install Dependencies
         run: npm install
 
+      # 5. สร้างไฟล์เว็บ (Dist folder) สำหรับ Production
       - name: Build Web Assets (Vite)
         run: npm run build
-        # คำสั่งนี้จะสร้างโฟลเดอร์ dist ตามที่ระบุใน capacitor.config.json
 
+      # 6. อัปเดตโค้ดเว็บเข้าไปในโฟลเดอร์ Android
       - name: Sync Capacitor
         run: npx cap sync android
 
+      # 7. ให้สิทธิ์ไฟล์ Gradlew เพื่อให้รันคำสั่ง Build ได้
       - name: Grant Execute Permission for Gradlew
         run: chmod +x android/gradlew
 
+      # 8. สั่ง Build APK แบบ Debug (ไม่ต้องใช้ KeyStore)
       - name: Build APK (Debug Version)
         run: cd android && ./gradlew assembleDebug
 
+      # 9. อัปโหลดไฟล์ APK ที่ได้ขึ้นไปเก็บไว้ให้ดาวน์โหลด
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

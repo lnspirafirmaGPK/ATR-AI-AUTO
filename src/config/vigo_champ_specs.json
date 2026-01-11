@@ -1,0 +1,17 @@
+{
+  "thresholds": {
+    "rail_pressure": {
+      "idle_target": 35000,
+      "idle_tolerance": 2000,
+      "scv_sticking_fluctuation": 2000
+    },
+    "injector_feedback": {
+      "critical_min": -3.0,
+      "critical_max": 3.0
+    }
+  },
+  "constants": {
+    "injector_correction_factor": 1.0,
+    "calibration_needed": true
+  }
+}

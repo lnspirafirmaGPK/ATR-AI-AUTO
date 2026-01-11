@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ATR Auto AI</string>
+    <string name="title_activity_main">ATR Auto AI</string>
+    <string name="package_name">com.atr.autoai.app</string>
+    <string name="custom_url_scheme">com.atr.autoai.app</string>
+</resources>

@@ -14,12 +14,12 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      # 2. ตั้งค่า Java 17 (จำเป็นสำหรับ Gradle รุ่นใหม่ใน Android Studio)
+      # 2. ตั้งค่า Java 21 (จำเป็นสำหรับ Gradle รุ่นใหม่ใน Android Studio)
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
-          java-version: '17'
+          java-version: '21'
 
       # 3. ตั้งค่า Node.js (แก้ไขเป็น v22 ตามที่ Capacitor v8 ต้องการ)
       - name: Setup Node.js

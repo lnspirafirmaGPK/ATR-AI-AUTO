@@ -1,9 +1,9 @@
 // src/pages/Dashboard.jsx
-import React from 'react';
+import React, { useState } from 'react'; // [แก้ไข] เพิ่ม useState
 import { Card, CardContent, CardHeader, CardTitle } from '../components/common/Card';
 import { useVehicle } from '../context/VehicleContext'; 
 import { useUser } from '../context/UserContext';
-import { useOBD, CONNECTION_STATES } from '../context/OBDContext'; // [เพิ่ม] เรียกใช้ Context ใหม่
+import { useOBD, CONNECTION_STATES } from '../context/OBDContext';
 import { LockOverlay } from '../components/common/LockOverlay';
 import { Button } from '../components/common/Button';
 import { t } from '../utils/i18n';
@@ -17,12 +17,12 @@ const StatusIcon = ({ status }) => {
 };
 
 export default function Dashboard({ lang }) {
-  // ใช้ useVehicle สำหรับดูค่า Data (RPM, Speed)
   const { vehicleData, diagnosticStatus, simulationMode, toggleSimulationMode } = useVehicle();
-  
-  // [แก้ไข] ใช้ useOBD สำหรับการ Connect/Disconnect และดูสถานะ
   const { connectToVehicle, disconnect, connectionState, currentVehicle } = useOBD();
   const { isPro } = useUser();
+
+  // [เพิ่ม] State สำหรับสลับโหมดการแสดงผลอุณหภูมิ (Coolant vs ATF)
+  const [tempMode, setTempMode] = useState('COOLANT'); 
 
   const isConnected = connectionState === CONNECTION_STATES.CONNECTED;
 
@@ -42,16 +42,13 @@ export default function Dashboard({ lang }) {
            </div>
         </div>
 
-        {/* Connection Controls Area */}
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
             {!isConnected ? (
                 <>
-                  {/* ปุ่มเลือก ISUZU */}
                   <Button onClick={() => connectToVehicle('ISUZU')} className="bg-red-600 hover:bg-red-700 text-white gap-2">
                     <Bluetooth className="w-4 h-4" /> Connect Isuzu
                   </Button>
                   
-                  {/* ปุ่มเลือก TOYOTA */}
                   <Button onClick={() => connectToVehicle('TOYOTA')} className="bg-black hover:bg-gray-800 text-white gap-2">
                     <Bluetooth className="w-4 h-4" /> Connect Toyota
                   </Button>
@@ -60,7 +57,6 @@ export default function Dashboard({ lang }) {
                 <Button onClick={disconnect} variant="destructive">Disconnect</Button>
             )}
 
-            {/* Simulation Selector */}
             <select
                 className="bg-gray-100 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
                 value={simulationMode}
@@ -99,16 +95,29 @@ export default function Dashboard({ lang }) {
             </CardContent>
         </Card>
 
-        {/* Coolant / ATF Temp Card */}
-        <Card>
+        {/* [ปรับปรุง] Coolant / ATF Temp Card - คลิกเพื่อสลับโหมด */}
+        <Card 
+          className="cursor-pointer hover:shadow-md transition-all border-l-4 border-blue-500 select-none active:scale-95" 
+          onClick={() => setTempMode(tempMode === 'COOLANT' ? 'ATF' : 'COOLANT')}
+        >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                {/* ถ้าเป็น Isuzu อาจจะเปลี่ยน Label ตรงนี้เป็น ATF Temp ได้ในอนาคต */}
-                <CardTitle className="text-sm font-medium">{t('coolantTemp', lang)}</CardTitle>
-                <Thermometer className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium">
+                    {/* แสดงชื่อตามโหมดที่เลือก */}
+                    {tempMode === 'ATF' ? t('atfTemp', lang) : t('coolantTemp', lang)}
+                </CardTitle>
+                <Thermometer className={`h-4 w-4 ${tempMode === 'ATF' ? 'text-blue-600' : 'text-orange-500'}`} />
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-bold">{vehicleData.coolantTemp}</div>
-                <p className="text-xs text-muted-foreground">°C</p>
+                <div className="text-2xl font-bold">
+                    {/* แสดงค่าตัวเลขตามโหมดที่เลือก */}
+                    {tempMode === 'ATF' 
+                      ? (vehicleData.trans_temp || '--') 
+                      : vehicleData.coolantTemp}
+                </div>
+                <p className="text-[10px] text-blue-500 font-medium mt-1">
+                    {tempMode === 'ATF' ? 'Gearbox Monitoring' : 'Engine Monitoring'}
+                </p>
+                <p className="text-[9px] text-muted-foreground italic underline">Click to switch</p>
             </CardContent>
         </Card>
 

@@ -1,0 +1,49 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch: # ปุ่มกดสั่งรันเอง
+  push:
+    branches:
+      - main # รันอัตโนมัติเมื่อแก้โค้ด
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # ตั้งค่า Java 17 ให้ตรงกับ Gradle 8.14.3 ของคุณ
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      # ตั้งค่า Node.js (แนะนำ v22 สำหรับปี 2026)
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Web Assets (Vite)
+        run: npm run build
+        # คำสั่งนี้จะสร้างโฟลเดอร์ dist ตามที่ระบุใน capacitor.config.json
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Grant Execute Permission for Gradlew
+        run: chmod +x android/gradlew
+
+      - name: Build APK (Debug Version)
+        run: cd android && ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ATR-Auto-AI-App
+          path: android/app/build/outputs/apk/debug/app-debug.apk

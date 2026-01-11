@@ -21,11 +21,11 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # 3. ตั้งค่า Node.js (ใช้ v20 LTS หรือ v22 ตามความเหมาะสม)
+      # 3. ตั้งค่า Node.js (แก้ไขเป็น v22 ตามที่ Capacitor v8 ต้องการ)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       # 4. ติดตั้ง Library ต่างๆ ของโปรเจกต์ (React, Vite, Tailwind)
       - name: Install Dependencies

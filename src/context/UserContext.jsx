@@ -11,9 +11,20 @@ export function UserProvider({ children }) {
     return localStorage.getItem('user_tier') || USER_TIERS.FREE;
   });
 
+  const [ownerName, setOwnerName] = useState(() => {
+    return localStorage.getItem('owner_name') || 'Guest';
+  });
+
   const upgradeToPro = () => {
     setUserTier(USER_TIERS.PRO);
     localStorage.setItem('user_tier', USER_TIERS.PRO);
+  };
+
+  const upgradeToGoldenKey = (name = 'Master') => {
+    setUserTier(USER_TIERS.GOLDEN_KEY);
+    setOwnerName(name);
+    localStorage.setItem('user_tier', USER_TIERS.GOLDEN_KEY);
+    localStorage.setItem('owner_name', name);
   };
 
   const downgradeToFree = () => {
@@ -21,10 +32,19 @@ export function UserProvider({ children }) {
     localStorage.setItem('user_tier', USER_TIERS.FREE);
   };
 
-  const isPro = userTier === USER_TIERS.PRO;
+  const isPro = userTier === USER_TIERS.PRO || userTier === USER_TIERS.GOLDEN_KEY;
+  const isGoldenKey = userTier === USER_TIERS.GOLDEN_KEY;
 
   return (
-    <UserContext.Provider value={{ userTier, isPro, upgradeToPro, downgradeToFree }}>
+    <UserContext.Provider value={{
+      userTier,
+      isPro,
+      isGoldenKey,
+      ownerName,
+      upgradeToPro,
+      upgradeToGoldenKey,
+      downgradeToFree
+    }}>
       {children}
     </UserContext.Provider>
   );

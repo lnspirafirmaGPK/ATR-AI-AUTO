@@ -1,39 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
 import DiagnosticEnforcer from '../DiagnosticEnforcer.js';
 
-const normalValues = {
-  railPressure: 35000,
-  injectors: { 1: 0.5, 2: -0.2, 3: 0.1, 4: -0.1 }
-};
+test('processData parses hex bytes and returns diagnostic result', () => {
+  const result = DiagnosticEnforcer.processData({
+    railPressureA: '88',
+    railPressureB: 'B8',
+    inj1: '82',
+    inj2: '7E',
+    inj3: '80',
+    inj4: '7D'
+  });
 
-const scvFaultValues = {
-    railPressure: 40000,
-    injectors: { 1: 0.5, 2: -0.2, 3: 0.1, 4: -0.1 }
-};
+  assert.equal(result.values.railPressure, 35000);
+  assert.deepEqual(result.values.injectors, { 1: 2, 2: -2, 3: 0, 4: -3 });
+});
 
-const injectorFaultValues = {
-    railPressure: 35000,
-    injectors: { 1: 3.5, 2: -0.2, 3: 0.1, 4: -0.1 }
-};
-
-function runTest() {
-    console.log("Running DiagnosticEnforcer Tests...");
-
-    const normalResult = DiagnosticEnforcer.processProcessedData(normalValues);
-    console.log("Normal Status:", normalResult.analysis.railSystem.status, normalResult.analysis.fuelSystem.status);
-
-    for(let i=0; i<20; i++) {
-        DiagnosticEnforcer.processProcessedData({
-            railPressure: 35000 + (i % 2 === 0 ? 3000 : -3000),
-            injectors: normalValues.injectors
-        });
-    }
-    const scvResult = DiagnosticEnforcer.processProcessedData(scvFaultValues);
-    console.log("SCV Fault Status:", scvResult.analysis.railSystem.status);
-
-    const injResult = DiagnosticEnforcer.processProcessedData(injectorFaultValues);
-    console.log("Injector Fault Status:", injResult.analysis.fuelSystem.status);
-
-    console.log("DiagnosticEnforcer manual verification finished.");
-}
-
-runTest();
+test('processData rejects invalid hex data', () => {
+  assert.throws(() => {
+    DiagnosticEnforcer.processData({
+      railPressureA: 'ZZ',
+      railPressureB: 'B8',
+      inj1: '82',
+      inj2: '7E',
+      inj3: '80',
+      inj4: '7D'
+    });
+  }, /Invalid mode21Data\.railPressureA/);
+});

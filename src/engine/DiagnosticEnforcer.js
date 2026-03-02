@@ -9,12 +9,10 @@ class DiagnosticEnforcer {
     this.BUFFER_SIZE = 50;
   }
 
+  /**
+   * Process raw data from OBD (e.g. Mode 21)
+   */
   processData(mode21Data) {
-    // Expecting mode21Data to be raw bytes or pre-parsed object
-    // For this implementation, let's assume we receive raw bytes array or object
-    // { railPressureA, railPressureB, inj1, inj2, inj3, inj4 }
-
-    // 1. Parse Data
     const railPressure = parseRailPressure(mode21Data.railPressureA, mode21Data.railPressureB);
     const injectors = {
       1: parseInjectorFeedback(mode21Data.inj1, specs.constants.injector_correction_factor),
@@ -23,17 +21,26 @@ class DiagnosticEnforcer {
       4: parseInjectorFeedback(mode21Data.inj4, specs.constants.injector_correction_factor),
     };
 
-    // 2. Buffer Rail Pressure
+    return this.processProcessedData({ railPressure, injectors });
+  }
+
+  /**
+   * Analyze already parsed/simulated values
+   */
+  processProcessedData(values) {
+    const { railPressure, injectors } = values;
+
+    // 1. Buffer Rail Pressure
     this.railPressureBuffer.push(railPressure);
     if (this.railPressureBuffer.length > this.BUFFER_SIZE) {
       this.railPressureBuffer.shift();
     }
 
-    // 3. Analyze
+    // 2. Analyze
     const railStatus = analyzeRailPressure(railPressure, this.railPressureBuffer);
     const injectorStatus = analyzeInjectors(injectors);
 
-    // 4. Aggregated Result
+    // 3. Aggregated Result
     return {
       values: {
         railPressure,

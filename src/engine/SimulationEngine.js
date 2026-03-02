@@ -1,7 +1,14 @@
 // src/engine/SimulationEngine.js
+export const SIMULATION_MODES = {
+  NORMAL: 'NORMAL',
+  SCV_FAULT: 'SCV_FAULT',
+  INJECTOR_FAULT: 'INJECTOR_FAULT'
+};
+
 class SimulationEngine {
   constructor() {
     this.state = 'IDLE'; // IDLE, ACCELERATING, CRUISING, DECELERATING
+    this.faultMode = SIMULATION_MODES.NORMAL;
     this.data = {
       rpm: 800,
       speed: 0,
@@ -23,13 +30,18 @@ class SimulationEngine {
     this.startStateLoop();
   }
 
+  setFaultMode(mode) {
+    if (SIMULATION_MODES[mode]) {
+      this.faultMode = mode;
+    }
+  }
+
   startStateLoop() {
     setInterval(() => {
       const states = ['IDLE', 'ACCELERATING', 'CRUISING', 'DECELERATING'];
       // Randomly change state every 5-10 seconds
       if (Math.random() > 0.8) {
         this.state = states[Math.floor(Math.random() * states.length)];
-        // console.log("Sim Engine State:", this.state);
       }
     }, 2000);
   }
@@ -55,7 +67,12 @@ class SimulationEngine {
     this.data.speed = this.lerp(this.data.speed, target.speed, smoothFactor) + this.noise(1);
 
     // Update Rail Pressure (follows RPM roughly)
-    this.data.railPressure = this.lerp(this.data.railPressure, target.railPressure, smoothFactor) + this.noise(500);
+    let pressureNoise = 500;
+    // SCV Sticking: High fluctuations at IDLE
+    if (this.faultMode === SIMULATION_MODES.SCV_FAULT && this.state === 'IDLE') {
+      pressureNoise = 5000; // Large fluctuations
+    }
+    this.data.railPressure = this.lerp(this.data.railPressure, target.railPressure, smoothFactor) + this.noise(pressureNoise);
 
     // Slowly vary temps
     this.data.coolantTemp += this.noise(0.05);
@@ -64,11 +81,23 @@ class SimulationEngine {
 
     this.data.trans_temp += this.noise(0.04);
 
-    // Injectors (random noise around 0)
-    this.data.injectors[1] = this.noise(0.5);
-    this.data.injectors[2] = this.noise(0.5);
-    this.data.injectors[3] = this.noise(0.5);
-    this.data.injectors[4] = this.noise(0.5);
+    // Injectors
+    let injectorNoise = 0.5;
+    if (this.faultMode === SIMULATION_MODES.INJECTOR_FAULT) {
+      injectorNoise = 8.0; // Will likely cause values to exceed +/- 3.0
+    }
+
+    this.data.injectors[1] = this.noise(injectorNoise);
+    this.data.injectors[2] = this.noise(injectorNoise);
+    this.data.injectors[3] = this.noise(injectorNoise);
+    this.data.injectors[4] = this.noise(injectorNoise);
+
+    // Ensure at least one injector is "failing" in fault mode
+    if (this.faultMode === SIMULATION_MODES.INJECTOR_FAULT) {
+        if (Math.abs(this.data.injectors[1]) < 3.1) {
+            this.data.injectors[1] = 3.5 + Math.random();
+        }
+    }
 
     return { ...this.data };
   }

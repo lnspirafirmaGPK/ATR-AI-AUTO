@@ -1,8 +1,8 @@
 // src/context/VehicleContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import DiagnosticEnforcer from '../engine/DiagnosticEnforcer';
-import SimulationEngine from '../engine/SimulationEngine';
-import bluetoothService, { SIMULATION_MODES } from '../services/bluetooth';
+import SimulationEngine, { SIMULATION_MODES } from '../engine/SimulationEngine';
+import bluetoothService from '../services/bluetooth';
 import { useUser } from './UserContext';
 
 const VehicleContext = createContext();
@@ -23,63 +23,46 @@ export function VehicleProvider({ children }) {
     fuelSystem: { status: 'NORMAL' }
   });
 
-  // Note: simulationMode here was referring to Bluetooth service internal simulation
-  // We are overriding this with our new SimulationEngine for the UI Demo
-  const [simulationMode, setSimulationMode] = useState('NORMAL');
+  const [simulationMode, setSimulationMode] = useState(SIMULATION_MODES.NORMAL);
   const [isConnected, setIsConnected] = useState(false);
+
+  // Sync SimulationEngine fault mode
+  useEffect(() => {
+    SimulationEngine.setFaultMode(simulationMode);
+  }, [simulationMode]);
 
   // Simulation Loop
   useEffect(() => {
     let intervalId;
     if (!isConnected) {
-      // Run Simulation Engine if not connected to real OBD
       intervalId = setInterval(() => {
         const simData = SimulationEngine.update();
-        
-        // Use DiagnosticEnforcer to analyze simulated data too
-        // We mock the mode21 object structure expected by Enforcer
-        const mockMode21 = {
-          railPressureA: 0, railPressureB: 0, // Enforcer expects raw bytes, but we might skip for sim
-          // For simplicity in Demo, we pass values directly if Enforcer allows,
-          // OR we just use simData directly for display and mock the status.
-        };
-
         setVehicleData(simData);
 
-        // Simple mock status for simulation
-        if (simData.railPressure > 160000) {
-           setDiagnosticStatus(prev => ({ ...prev, railSystem: { status: 'WARNING' } }));
-        } else {
-           setDiagnosticStatus(prev => ({ ...prev, railSystem: { status: 'NORMAL' } }));
-        }
+        // Run real analysis logic on simulated data
+        const analysisResult = DiagnosticEnforcer.processProcessedData({
+          railPressure: simData.railPressure,
+          injectors: simData.injectors
+        });
 
-      }, 100); // 10Hz update rate
+        setDiagnosticStatus(analysisResult.analysis);
+      }, 100);
     }
 
     return () => clearInterval(intervalId);
   }, [isConnected]);
 
-  // Real Bluetooth Data Handler (Commented out if bluetoothService exports are missing/broken in this env)
-  /*
-  useEffect(() => {
-    if (isConnected) {
-       bluetoothService.onData((rawFrame) => { ... });
-    }
-  }, [isConnected, isPro]);
-  */
-
   const toggleSimulationMode = (mode) => {
     setSimulationMode(mode);
-    // bluetoothService.setSimulationMode(mode);
   };
 
   const connect = async () => {
-    await bluetoothService.connect(simulationMode);
+    // In a real app, we might pass config here
+    // For now, let's just mock connection
     setIsConnected(true);
   };
 
   const disconnect = async () => {
-    await bluetoothService.disconnect();
     setIsConnected(false);
   };
 

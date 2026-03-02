@@ -1,55 +1,155 @@
-name: Build Android APK
+name: Monorepo Android Build (Auto Detect)
 
 on:
-  workflow_dispatch: # อนุญาตให้กดปุ่มสั่งรันได้เอง (Manual Trigger)
+  workflow_dispatch:
   push:
     branches:
-      - main # รันอัตโนมัติทุกครั้งที่มีการแก้โค้ดและ Push ขึ้น branch main
+      - main
+  pull_request:
 
 jobs:
-  build:
+  discover:
     runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.find-apps.outputs.matrix }}
+      has_apps: ${{ steps.find-apps.outputs.has_apps }}
     steps:
-      # 1. ดึงโค้ดล่าสุดจาก Repository มาที่ Server จำลอง
-      - name: Checkout Source Code
+      - name: Checkout source code
         uses: actions/checkout@v4
 
-      # 2. ตั้งค่า Java 21 (จำเป็นสำหรับ Gradle รุ่นใหม่ใน Android Studio)
+      - name: Detect buildable Capacitor Android apps
+        id: find-apps
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -d '' package_files < <(find . -name package.json \
+            -not -path '*/node_modules/*' \
+            -not -path '*/android/*' \
+            -print0)
+
+          include_json=""
+          found=0
+
+          for pkg in "${package_files[@]}"; do
+            app_dir="$(dirname "$pkg")"
+            [ "$app_dir" = "." ] && app_dir=""
+
+            if [ -f "${app_dir:+$app_dir/}capacitor.config.json" ] || [ -f "${app_dir:+$app_dir/}capacitor.config.ts" ]; then
+              if [ -d "${app_dir:+$app_dir/}android" ]; then
+                lockfile="none"
+                if [ -f "${app_dir:+$app_dir/}pnpm-lock.yaml" ]; then
+                  lockfile="pnpm"
+                elif [ -f "${app_dir:+$app_dir/}yarn.lock" ]; then
+                  lockfile="yarn"
+                elif [ -f "${app_dir:+$app_dir/}package-lock.json" ]; then
+                  lockfile="npm"
+                fi
+
+                node_version="22"
+                if [ -f "${app_dir:+$app_dir/}.nvmrc" ]; then
+                  node_version="$(tr -d 'v[:space:]' < "${app_dir:+$app_dir/}.nvmrc")"
+                fi
+
+                entry="{\"app_dir\":\"${app_dir:-.}\",\"lockfile\":\"$lockfile\",\"node_version\":\"$node_version\"}"
+                if [ "$found" -eq 0 ]; then
+                  include_json="$entry"
+                else
+                  include_json="$include_json,$entry"
+                fi
+                found=1
+              fi
+            fi
+          done
+
+          if [ "$found" -eq 0 ]; then
+            echo 'matrix={"include":[]}' >> "$GITHUB_OUTPUT"
+            echo 'has_apps=false' >> "$GITHUB_OUTPUT"
+            echo "No Capacitor Android app detected."
+          else
+            echo "matrix={\"include\":[${include_json}]}" >> "$GITHUB_OUTPUT"
+            echo 'has_apps=true' >> "$GITHUB_OUTPUT"
+            echo "Detected matrix: {\"include\":[${include_json}]}"
+          fi
+
+  build:
+    needs: discover
+    if: needs.discover.outputs.has_apps == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ matrix.app_dir }}
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: zulu
           java-version: '21'
 
-      # 3. ตั้งค่า Node.js (แก้ไขเป็น v22 ตามที่ Capacitor v8 ต้องการ)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: ${{ matrix.node_version }}
 
-      # 4. ติดตั้ง Library ต่างๆ ของโปรเจกต์ (React, Vite, Tailwind)
-      - name: Install Dependencies
-        run: npm install
+      - name: Setup pnpm
+        if: matrix.lockfile == 'pnpm'
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
 
-      # 5. สร้างไฟล์เว็บ (Dist folder) สำหรับ Production
-      - name: Build Web Assets (Vite)
-        run: npm run build
+      - name: Install dependencies (npm)
+        if: matrix.lockfile == 'npm' || matrix.lockfile == 'none'
+        run: npm ci || npm install
 
-      # 6. อัปเดตโค้ดเว็บเข้าไปในโฟลเดอร์ Android
-      - name: Sync Capacitor
+      - name: Install dependencies (yarn)
+        if: matrix.lockfile == 'yarn'
+        run: yarn install --frozen-lockfile
+
+      - name: Install dependencies (pnpm)
+        if: matrix.lockfile == 'pnpm'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build web assets
+        run: |
+          if npm run | grep -qE '^[[:space:]]*build'; then
+            npm run build
+          elif [ "${{ matrix.lockfile }}" = "yarn" ]; then
+            yarn build
+          elif [ "${{ matrix.lockfile }}" = "pnpm" ]; then
+            pnpm build
+          else
+            echo "No build script found" >&2
+            exit 1
+          fi
+
+      - name: Sync Capacitor Android
         run: npx cap sync android
 
-      # 7. ให้สิทธิ์ไฟล์ Gradlew เพื่อให้รันคำสั่ง Build ได้
-      - name: Grant Execute Permission for Gradlew
+      - name: Grant execute permission for Gradle wrapper
         run: chmod +x android/gradlew
 
-      # 8. สั่ง Build APK แบบ Debug (ไม่ต้องใช้ KeyStore)
-      - name: Build APK (Debug Version)
-        run: cd android && ./gradlew assembleDebug
+      - name: Build debug APK
+        run: (cd android && ./gradlew assembleDebug)
 
-      # 9. อัปโหลดไฟล์ APK ที่ได้ขึ้นไปเก็บไว้ให้ดาวน์โหลด
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ATR-Auto-AI-App
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: ${{ matrix.app_dir == '.' && 'android-apk' || format('{0}-android-apk', matrix.app_dir) }}
+          path: ${{ matrix.app_dir }}/android/app/build/outputs/apk/debug/app-debug.apk
+
+  no_apps_found:
+    needs: discover
+    if: needs.discover.outputs.has_apps != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: No buildable apps found
+        run: echo "No Capacitor Android apps detected in this repository."

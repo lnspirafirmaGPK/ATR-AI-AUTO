@@ -1,8 +1,8 @@
 // src/context/OBDContext.jsx
 import React, { createContext, useContext, useState } from 'react';
 import bluetoothService from '../services/bluetooth';
-import isuzuSpecs from '../config/isuzu_dmax_specs.json';
-import vigoSpecs from '../config/vigo_champ_specs.json';
+import isuzuSpecs from '../config/isuzu_dmax_specs.json' with { type: 'json' };
+import vigoSpecs from '../config/vigo_champ_specs.json' with { type: 'json' };
 
 const OBDContext = createContext();
 

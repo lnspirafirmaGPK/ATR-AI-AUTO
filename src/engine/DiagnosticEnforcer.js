@@ -1,7 +1,7 @@
 // src/engine/DiagnosticEnforcer.js
 import { parseRailPressure, parseInjectorFeedback } from './parsers/toyotaMode21.js';
 import { analyzeRailPressure, analyzeInjectors } from './analyzers/fuelSystem.js';
-import specs from '../config/vigo_champ_specs.json';
+import specs from '../config/vigo_champ_specs.json' with { type: 'json' };
 
 class DiagnosticEnforcer {
   constructor() {

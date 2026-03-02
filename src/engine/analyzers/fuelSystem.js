@@ -1,5 +1,5 @@
 // src/engine/analyzers/fuelSystem.js
-import specs from '../../config/vigo_champ_specs.json';
+import specs from '../../config/vigo_champ_specs.json' with { type: 'json' };
 
 export function analyzeRailPressure(currentPressure, historicalPressures) {
   // Check fluctuation at idle

@@ -145,7 +145,6 @@ This repository utilizes **GitHub Actions** to automatically build the Android A
 
 ### Developed By
 
-* **Jules** - *Lead Developer & Architect*
 * **Gemini** - *AI Co-Pilot & Code Consultant*
 
 ---
